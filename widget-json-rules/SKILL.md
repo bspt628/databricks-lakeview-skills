@@ -83,4 +83,3 @@ UIに「視覚化するフィールドを選択してください」と表示さ
 - [ ] 色指定は `themeColorType: "visualizationColors"` か（`type: "VISUALIZATION_COLOR"` は不正）
 - [ ] `queries[].name` はウィジェット種別の正規値か（テーブルは `"main_query"` 必須）
 - [ ] データセット削除時に `queries[]` と `encodings.fields[]` の両方から参照を削除したか
-- [ ] フィルターが月次+週次の両データセットに連携しているか（`queries` と `encodings.fields` の両方）
