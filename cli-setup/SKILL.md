@@ -5,67 +5,7 @@ description: Databricksの使い方ガイド。CLIでのクエリ実行方法と
 
 # Databricks 使い方ガイド
 
-## 重要: MCPツールは使用禁止
-
-**Databricksへのクエリ実行には、MCPツール（`mcp__databricks__*`）を絶対に使用しないこと。**
-
-代わりに、以下の方法を使用する：
-
-1. **databricks CLI** を使った REST API 呼び出し（推奨）
-2. **curl** を使った直接 REST API 呼び出し
-
-理由：MCPツールは実行が遅く、不安定な場合がある。REST APIの方が高速で信頼性が高い。
-
----
-
-## 重要: ローカル版とDatabricks版の使い分け
-
-**スクリプトには必ず2つのバージョンを用意し、環境に応じて厳密に使い分けること。**
-
-### ファイル命名規則
-
-| 環境 | ファイル名 | SQL実行方法 |
-|------|-----------|------------|
-| **ローカル開発** | `*_local.py` | REST API（databricks CLI / requests） |
-| **Databricks本番** | `*_spark.py` | `spark.sql()` |
-
-### 使い分けルール（厳守）
-
-```
-# ✅ 正しい使い方
-ローカルで開発・テスト → *_local.py を使用
-Databricksにアップロード → *_spark.py を使用
-
-# ❌ 絶対に禁止
-ローカルで *_spark.py を実行 → sparkオブジェクトがなくエラー、意味がない
-Databricksで *_local.py を実行 → REST API経由は遅く、非効率
-```
-
-### 現在のファイル構成
-
-```
-queries/
-├── daily/
-│   ├── generate_daily_report_v4_spark.py   # Databricks版（spark.sql使用）
-│   └── generate_daily_report_v4_local.py   # ローカル版（REST API使用）
-│
-└── shop_analysis/
-    ├── generate_shop_analysis_spark.py     # Databricks版（spark.sql使用）
-    └── generate_shop_analysis_local.py     # ローカル版（REST API使用）
-```
-
-### 理由
-
-| 環境 | REST API | spark.sql() |
-|------|----------|-------------|
-| **ローカル** | ✅ 1〜2秒で高速 | ❌ sparkオブジェクトがない |
-| **Databricks** | ❌ HTTP経由で遅い | ✅ 直接実行で最速 |
-
-**この使い分けを守らないと、実行速度が大幅に低下する。**
-
----
-
-## 1. Databricks CLI の利用方法（推奨）
+## 1. Databricks CLI の利用方法
 
 ### 1.1. warehouse_idについて
 
@@ -143,28 +83,22 @@ curl -X GET "${DATABRICKS_HOST}/api/2.0/sql/statements/{statement_id}" \
 
 ## 2. Databricks Kernel ローカル開発
 
-`jupyter-databricks-kernel` を使用して、ローカルからDatabricksクラスタ上でコードを実行する方法を説明します。
-
-### 2.1. 概要
+`jupyter-databricks-kernel` を使用して、ローカルからDatabricksクラスタ上でコードを実行できる。
 
 ```
 ローカルPC (VS Code/Jupyter) → Databricksクラスタ → 結果を返す
 ```
 
-- **コードはDatabricksクラスタ上で実行**される
+- コードはDatabricksクラスタ上で実行される
 - `spark` オブジェクトがそのまま使える
 - ローカルのIDEでデバッグ・開発できる
 
-### 2.2. セットアップ
-
-#### インストール
+### 2.1. セットアップ
 
 ```bash
 pip install jupyter-databricks-kernel
 python -m jupyter_databricks_kernel.install
 ```
-
-#### 認証設定
 
 `~/.databrickscfg` にクラスタIDを追加：
 
@@ -181,28 +115,17 @@ https://xxx.cloud.databricks.com/#/compute/1218-013556-xxxxxx
                                            ^^^^^^^^^^^^^^^^^^^
 ```
 
----
+### 2.2 VS Code / JupyterLabでの使用
 
-## 3. 使い方
-
-### 3.1 VS Codeでの使用
-
-1. `.ipynb` ファイルを開く
-2. 右上の「カーネルを選択」→「Databricks」を選択
-3. セルを実行（クラスタが停止中なら5-6分で起動）
-
-### 3.2 JupyterLabでの使用
-
-```bash
-jupyter-lab
-```
-カーネル選択で「Databricks」を選択
+- VS Code: `.ipynb` を開き「カーネルを選択」→「Databricks」を選択
+- JupyterLab: `jupyter-lab` を起動しカーネル選択で「Databricks」を選択
+- クラスタが停止中なら5-6分で起動
 
 ---
 
-## 4. Pythonスクリプトの書き方
+## 3. Databricks Notebook の書き方
 
-### 4.1 Databricks版スクリプトの構造
+### 3.1 基本構造
 
 ```python
 # Databricks notebook source
@@ -211,7 +134,6 @@ jupyter-lab
 # COMMAND ----------
 
 import pandas as pd
-from datetime import date
 
 # spark は自動的に利用可能
 def execute_sql(query: str) -> pd.DataFrame:
@@ -219,59 +141,28 @@ def execute_sql(query: str) -> pd.DataFrame:
 
 # COMMAND ----------
 
-# メイン処理
-def main():
-    df = execute_sql("SELECT * FROM table LIMIT 10")
-    print(df)
-
-main()
+df = execute_sql("SELECT * FROM table LIMIT 10")
+print(df)
 ```
 
-### 4.2 ローカル版との違い
+### 3.2 ローカルスクリプトとの主な違い
 
-| 項目 | ローカル版 | Databricks版 |
-|------|-----------|--------------|
+| 項目 | ローカルスクリプト | Databricks Notebook |
+|------|-------------------|---------------------|
 | SQL実行 | REST API経由 | `spark.sql()` |
 | 冒頭 | `#!/usr/bin/env python3` | `# Databricks notebook source` |
 | pip | 事前インストール | `# MAGIC %pip install` |
 | セル区切り | なし | `# COMMAND ----------` |
 
-### 4.3 変換のポイント
+ローカルスクリプト → Notebook への変換ポイント:
 
-ローカル版 → Databricks版への変換は**3箇所のみ**：
-
-1. **冒頭に追加**
-```python
-# Databricks notebook source
-# MAGIC %pip install openpyxl
-# COMMAND ----------
-```
-
-2. **SQL実行関数を簡略化**
-```python
-# Before (ローカル版)
-def execute_databricks_sql(query):
-    # REST API経由の複雑なコード...
-
-# After (Databricks版)
-def execute_databricks_sql(query):
-    return spark.sql(query).toPandas()
-```
-
-3. **末尾を変更**
-```python
-# Before
-if __name__ == "__main__":
-    main()
-
-# After
-# COMMAND ----------
-main()
-```
+1. 冒頭に `# Databricks notebook source` と `# MAGIC %pip install ...` を追加
+2. SQL実行を `spark.sql(query).toPandas()` に簡略化
+3. `if __name__ == "__main__":` を `# COMMAND ----------` + 直接呼び出しに変更
 
 ---
 
-## 5. ファイル同期設定
+## 4. ファイル同期設定
 
 `pyproject.toml` で同期設定をカスタマイズ：
 
@@ -286,25 +177,24 @@ use_gitignore = true
 
 ---
 
-## 6. 出力ファイルの扱い
+## 5. 出力ファイルの扱い
 
-### 6.1 Workspace保存（推奨）
+### Workspace保存（推奨）
 
 ```python
 OUTPUT_DIR = "/Workspace/Users/yourname@company.com/output/"
 ```
 
-### 6.2 FileStore経由でダウンロード
+### FileStore経由でダウンロード
 
 ```python
-# クラスタ上で実行
 dbutils.fs.cp("file:./output.xlsx", "/FileStore/output.xlsx")
 # ブラウザでダウンロード: https://xxx.cloud.databricks.com/files/output.xlsx
 ```
 
 ---
 
-## 7. 注意事項
+## 6. 注意事項
 
 | 制限 | 詳細 |
 |------|------|
@@ -313,80 +203,19 @@ dbutils.fs.cp("file:./output.xlsx", "/FileStore/output.xlsx")
 | input()不可 | 対話的入力は使えない |
 | ipywidgets不可 | インタラクティブウィジェットは非対応 |
 
----
+### トラブルシューティング
 
-## 8. トラブルシューティング
-
-### カーネルが遅い
-
+カーネルが遅い場合:
 ```toml
-# pyproject.toml で不要なファイルを除外
 [tool.jupyter-databricks-kernel.sync]
 exclude = [".venv/", "__pycache__/", "*.parquet", "data/"]
 max_size_mb = 50.0
 ```
 
-### クラスタが起動しない
-
+クラスタが起動しない場合:
 ```python
-# クラスタ状態を確認
 from databricks.sdk import WorkspaceClient
 w = WorkspaceClient()
 cluster = w.clusters.get("your-cluster-id")
 print(f"状態: {cluster.state}")
 ```
-
----
-
-## 9. 実行例
-
-```python
-# Databricks notebook source
-# MAGIC %pip install openpyxl
-
-# COMMAND ----------
-
-import pandas as pd
-from openpyxl import Workbook
-
-# SQLでデータ取得
-df = spark.sql("""
-    SELECT store_id, SUM(amount) as total_sales
-    FROM your_catalog.your_schema.your_table_name
-    WHERE accounting_date >= '2026-01-01'
-    GROUP BY store_id
-""").toPandas()
-
-print(f"取得件数: {len(df)}")
-
-# COMMAND ----------
-
-# Excelファイル作成
-wb = Workbook()
-ws = wb.active
-ws.title = "売上集計"
-
-# ヘッダー
-ws.cell(1, 1, "store_id")
-ws.cell(1, 2, "売上合計")
-
-# データ
-for i, row in df.iterrows():
-    ws.cell(i + 2, 1, row['store_id'])
-    ws.cell(i + 2, 2, row['total_sales'])
-
-wb.save("./output.xlsx")
-print("Excel出力完了")
-```
-
----
-
-## 10. ディレクトリ構成例
-
-```
-queries/daily/
-├── generate_daily_report_v2.py           # ローカル版（バックアップ）
-└── generate_daily_report_v2_databricks.py # Databricks版（メイン）
-```
-
-**推奨**: Databricks版をメインで開発し、ローカル版は互換性のためにバックアップとして保持。
